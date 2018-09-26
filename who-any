@@ -1,0 +1,56 @@
+#!/usr/bin/env sh
+
+TSCONFIG="tsconfig.json"
+
+usage() {
+  echo "Usage: $0
+
+    Find out who is writing 'any' in the TypeScripts.
+
+  Actions
+    (no arg)     Print 'lines containing any' per author
+    -f           List 'file:line author' for each line with any
+    -h           Print the message
+
+  Options
+    -p           Set path to project's tsconfig (default: tsconfig.json)";
+  exit 1;
+}
+
+files_and_lines() {
+  TEMPFILE='who-any-linting-config.json'
+  echo '{"rules": {"no-any": true}}' > $TEMPFILE
+	node_modules/.bin/tslint -t verbose -c $TEMPFILE -p "$TSCONFIG" | cut -b 17- | cut -d':' -f 1 | cut -d',' -f 1
+  rm $TEMPFILE
+}
+
+lines_and_authors() {
+	for l in $(files_and_lines); do
+		file=$(echo "$l" | cut -d'[' -f 1)
+		range=$(echo "$l" | cut -d'[' -f 2)
+		who=$(git blame --porcelain -L "$range",+1 "$file" | grep "^author " | cut -c8-)
+		echo "$file:$range $who"
+	done
+}
+
+authors() {
+	lines_and_authors | cut -d' ' -f2- | sort | uniq -c | sort -nr
+}
+
+while getopts ":p:fh" o; do
+	case "${o}" in
+    p)
+      TSCONFIG="$OPTARG"
+      ;;
+		f)
+			lines_and_authors
+			exit 0
+			;;
+		h)
+			usage
+			;;
+	esac
+done
+shift $((OPTIND-1))
+
+authors

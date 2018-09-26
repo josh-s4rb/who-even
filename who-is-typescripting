@@ -1,0 +1,55 @@
+#!/usr/bin/env sh
+
+usage() {
+  echo "Usage: $0
+
+    Find out who is writing the TypeScripts.
+
+  Actions
+    (no arg)     Print leaderboard of .ts files created by authors
+    -f AUTHOR    List files created by AUTHOR
+    -h           Print this message";
+  exit 1;
+}
+
+get_files() {
+  git ls-files -- '*.ts'
+}
+
+who_created() {
+  git log --pretty=format:%an "$1" | tail -1
+}
+
+totals() {
+  s=''
+  for f in $(get_files); do
+    author=$(who_created "$f")
+    s="$s$author\n"
+  done
+
+  printf "$s" | sort | uniq -c | sort -nr
+}
+
+files() {
+  for f in $(get_files); do
+    author=$(who_created "$f")
+    if [ "$author" = "$1" ]; then
+      echo "$f"
+    fi
+  done
+}
+
+while getopts ":f:l:h" o; do
+  case "${o}" in
+    f)
+      files "$OPTARG"
+      exit 0
+      ;;
+    h)
+      usage
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+
+echo "$(totals)"
